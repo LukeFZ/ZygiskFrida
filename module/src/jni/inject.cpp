@@ -17,7 +17,7 @@
 #include "log.h"
 
 
-bool should_inject(std::string const& module_dir, std::string const& app_name) {
+bool is_app_name_target(std::string const& module_dir, std::string const& app_name) {
     auto targetFilePath = module_dir + "/target_packages";
 
     std::ifstream target_file(targetFilePath);

@@ -1,6 +1,8 @@
 #include <string>
 #include <thread>
+#include <unistd.h>
 
+#include "ipc.h"
 #include "inject.h"
 #include "log.h"
 #include "zygisk.h"
@@ -22,14 +24,17 @@ class MyModule : public zygisk::ModuleBase {
         this->app_name = std::string(raw_app_name);
         this->env->ReleaseStringUTFChars(args->nice_name, raw_app_name);
 
-        std::string module_dir = std::string("/data/local/tmp/") + ModulePackageName;
-        this->gadget_path = module_dir + "/" + GadgetLibraryName;
-
-        this->inject = should_inject(module_dir, this->app_name);
-        if (!this->inject) {
+        const auto companion_fd = api->connectCompanion();
+        if (!should_inject(companion_fd, this->app_name, &this->inject) || !this->inject) {
+            close(companion_fd);
             this->api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
             return;
         }
+
+        close(companion_fd);
+
+        std::string module_dir = std::string("/data/local/tmp/") + ModulePackageName;
+        this->gadget_path = module_dir + "/" + GadgetLibraryName;
 
         LOGI("App detected: %s", this->app_name.c_str());
     }
@@ -42,11 +47,27 @@ class MyModule : public zygisk::ModuleBase {
     }
 
  private:
-    Api *api;
-    JNIEnv *env;
-    bool inject;
+    Api *api{};
+    JNIEnv *env{};
+    bool inject{};
     std::string gadget_path;
     std::string app_name;
 };
 
+void file_companion(int fd) {
+    IpcCommand command;
+
+    while (true) {
+        if (read(fd, &command, sizeof(command)) != sizeof(command))
+            break;
+
+        if (command != IpcCommand::ShouldInject)
+            break;
+
+        if (!companion_should_inject(fd))
+            break;
+    }
+}
+
 REGISTER_ZYGISK_MODULE(MyModule)
+REGISTER_ZYGISK_COMPANION(file_companion)
