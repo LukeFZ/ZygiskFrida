@@ -58,12 +58,8 @@ bool companion_should_inject(int fd) {
 
     std::string app_name(&app_name_buffer[0], app_name_buffer.size());
 
-    LOGD("companion app name %s", app_name.c_str());
-
     const auto module_path = std::string("/data/local/tmp/") + ModulePackageName;
     bool result = is_app_name_target(module_path, app_name);
-
-    LOGD("should inject: %d", result);
 
     IpcCommand command;
 
